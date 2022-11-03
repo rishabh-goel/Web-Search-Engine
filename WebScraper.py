@@ -9,6 +9,7 @@ from urllib3.exceptions import InsecureRequestWarning
 
 stopwords = set(stopwords.words('english'))
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+HEADERS = {'User-Agent': 'Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'}
 
 '''
 The scraper also extracts the visible text from each of these pages, which are persisted in a directory uic-docs-text
@@ -29,13 +30,12 @@ def tag_visible(element):
 
 
 def text_from_html(body):
-    soup = BeautifulSoup(body, 'html.parser')
-    web_page_paragraph_contents = soup.find_all('p')
+    soup = BeautifulSoup(body, features='lxml')
+    web_page_paragraph_contents = soup.find_all(text=True)
     web_page_paragraph_contents = filter(tag_visible, web_page_paragraph_contents)
     text = ''
     for para in web_page_paragraph_contents:
-        if not ('https:' in str(para.text) or str(para.text) != 'We recommend using the latest version of IE11, Edge, '
-                                                                'Chrome, Firefox or Safari.'):
+        if not ('https:' in str(para.text)):
             text = text + str(para.text).strip() + "\n"
 
     word_list = []
@@ -49,7 +49,7 @@ def text_from_html(body):
 
 
 def scrape_links(html):
-    soup = BeautifulSoup(html, 'html.parser')
+    soup = BeautifulSoup(html, features='lxml')
     links = soup.find_all('a', href=True)
     return links
 
@@ -67,7 +67,7 @@ def create_document(text, filename):
 
 def scrape_page(url, index):
     try:
-        res = requests.get(url, timeout=(3, 60), verify=False)
+        res = requests.get(url, timeout=(3, 60), verify=False, headers=HEADERS)
         return res, res.url, index
     except Exception:
         print(f'Error url: {url}')
