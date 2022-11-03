@@ -28,7 +28,8 @@ class WebCrawler:
         self.domain = 'uic.edu'
         self.atomicCounter = Counter(0)
         self.invalid_extensions = [".pdf", ".jpg", ".jpeg", ".doc", ".docx", ".ppt", ".pptx", ".png", ".txt", ".exe",
-                                   ".ps", ".psb", ".shtml", ".aspx", "mailto:", ".html", ".php", ".asp"]
+                                   ".ps", ".psb", ".shtml", ".aspx", "mailto:", ".html", ".php", ".asp", ".htm",
+                                   "?", ".thmx"]
         # All the scraped pages
         self.crawled_pages = set([])
         self.dictionary = {}
@@ -45,13 +46,13 @@ class WebCrawler:
             return False
         return True
 
-    def parse_links(self, html):
+    def parse_links(self, html, parent_url):
         links = scrape_links(html)
         for link in links:
             url = link['href']
             url = url.strip()
             if (url.startswith('/') or self.domain in url) and ('.com' not in url):  # run only in the uic.edu domain
-                url = urljoin(self.root_url, url)
+                url = urljoin(parent_url, url)
                 if url not in self.crawled_pages and '@' not in url and self.is_valid_extension(url):
                     if not url.endswith("/"):
                         url = url + "/"  # appending / in the end to avoid duplicate runs
@@ -59,14 +60,26 @@ class WebCrawler:
                         url = url.replace("https", "http")
                     self.to_crawl.put(url)
 
+    def delete_invalid_url(self, reason, url):
+        url = url.replace("https", "http")
+        print(f'{reason} -> {url}')
+        self.dictionary = {key: val for key, val in self.dictionary.items() if val != url}
+        if url in self.crawled_pages:
+            self.crawled_pages.remove(url)
+            print(f'{url} deleted from crawled_pages')
+        print()
+
     def post_scrape_callback(self, res):
         if res is not None:
             result = res.result()
-            # if result[0].status_code == 200 and result[0]:
             if result and result[0]:
                 if result[0].status_code == 200:
-                    self.parse_links(result[0].text)
+                    self.parse_links(result[0].text, result[1])
                     scrape_info(result[0].text, result[2])
+            else:
+                self.delete_invalid_url("result[1] is None", result[1])
+        else:
+            print("res is None")
 
     def run_scraper(self, num_pages):
         while True:
@@ -87,9 +100,6 @@ class WebCrawler:
                 return
             except Exception as e:
                 print(f'Exception is \n{e}')
-                # TODO: remove errored url
-                self.dictionary = {key: val for key, val in self.dictionary.items() if val != target_url}
-                self.crawled_pages.remove(target_url)
                 continue
 
     def store_crawled_pages(self):
