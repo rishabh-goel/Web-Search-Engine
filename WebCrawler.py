@@ -37,6 +37,7 @@ class WebCrawler:
         self.counter = 0
         # A queue representing the urls fetched and yet to be scraped
         self.to_crawl = Queue()
+        self.parent_list = {}
 
         # Adding the base url to the queue
         self.to_crawl.put(self.base_url)
@@ -53,6 +54,7 @@ class WebCrawler:
             url = url.strip()
             if (url.startswith('/') or self.domain in url) and ('.com' not in url):  # run only in the uic.edu domain
                 url = urljoin(parent_url, url)
+                self.parent_list[url] = parent_url
                 if url not in self.crawled_pages and '@' not in url and self.is_valid_extension(url):
                     if not url.endswith("/"):
                         url = url + "/"  # appending / in the end to avoid duplicate runs
@@ -66,8 +68,6 @@ class WebCrawler:
         self.dictionary = {key: val for key, val in self.dictionary.items() if val != url}
         if url in self.crawled_pages:
             self.crawled_pages.remove(url)
-            print(f'{url} deleted from crawled_pages')
-        print()
 
     def post_scrape_callback(self, res):
         if res is not None:
@@ -77,9 +77,7 @@ class WebCrawler:
                     self.parse_links(result[0].text, result[1])
                     scrape_info(result[0].text, result[2])
             else:
-                self.delete_invalid_url("result[1] is None", result[1])
-        else:
-            print("res is None")
+                self.delete_invalid_url("Result is None", result[1])
 
     def run_scraper(self, num_pages):
         while True:
@@ -106,6 +104,10 @@ class WebCrawler:
         with open("mapping.txt", "w+") as f:
             for num, url in self.dictionary.items():
                 f.write(f'{num} {url}\n')
+
+        with open("parent_list.txt", "w+") as f:
+            for url, parent in self.parent_list.items():
+                f.write(f'{url} -> {parent}\n')
 
 
 if __name__ == '__main__':
