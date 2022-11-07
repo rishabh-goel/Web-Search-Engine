@@ -30,7 +30,7 @@ def tag_visible(element):
 
 
 def text_from_html(body):
-    soup = BeautifulSoup(body, features='lxml')
+    soup = BeautifulSoup(body, features='html.parser')
     web_page_paragraph_contents = soup.find_all(text=True)
     web_page_paragraph_contents = filter(tag_visible, web_page_paragraph_contents)
     text = ''
@@ -49,7 +49,7 @@ def text_from_html(body):
 
 
 def scrape_links(html):
-    soup = BeautifulSoup(html, features='lxml')
+    soup = BeautifulSoup(html, features='html.parser')
     links = soup.find_all('a', href=True)
     return links
 
@@ -61,16 +61,15 @@ def scrape_info(html, filecounter):
 
 
 def create_document(text, filename):
-    with open(filename, 'w+') as f:
+    with open(filename, 'w') as f:
         f.write(text)
 
 
 def scrape_page(url, index):
     try:
         res = requests.get(url, timeout=(3, 60), verify=False, headers=HEADERS)
-        return res, res.url, index
-    except Exception:
-        print(f'Error url: {url}')
+        return res.text, res.url, index, res.status_code
+    except requests.RequestException:
         return
 
 
