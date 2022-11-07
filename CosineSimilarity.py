@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 from collections import Counter, defaultdict
 
@@ -8,6 +7,8 @@ from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 
 # Set of stopwords from english
+from scipy.special import logsumexp
+
 from WebScraper import stemmer
 
 stopwords = set(stopwords.words('english'))
@@ -25,15 +26,7 @@ def tokenize_documents(current_path):
         f = open(file, 'r')
         content = f.read()
         file_number = int(filename[:-4])
-        word_list = []
-
-        # Ignoring words that are either numbers and or have length <= 2
-        # Extracting only Title and Text info
-        for word in content.split():
-            if len(word) > 2:
-                word_list.append(word)
-
-        document_corpus[file_number] = stemmer(word_list)
+        document_corpus[file_number] = content.split()
 
     return document_corpus
 
@@ -82,8 +75,8 @@ def df_calc(documents):
 def calculate_tf_idf(item, vocab, DF, N):
     tf_idf = {}
 
-    for i in range(1, len(item) + 1):
-        tokens = item[i]
+    for key, value in item.items():
+        tokens = value
         word_count = len(tokens)
         counter = Counter(tokens)
 
@@ -96,14 +89,16 @@ def calculate_tf_idf(item, vocab, DF, N):
 
             idf = np.log2((N + 1) / (df + 1))
 
-            tf_idf[(i, token)] = tf * idf
+            tf_idf[(key, token)] = tf * idf
 
     return tf_idf
 
 
 # Method to convert documents to document vector
 def document_to_vector(documents, vocab, tf_idf):
-    doc_vector = np.zeros((len(documents), len(vocab)))
+    x = max(documents, key=int)
+    y = len(vocab)
+    doc_vector = np.zeros((x, y))
 
     for item in tf_idf.items():
         idx = vocab.index(item[0][1])
@@ -129,8 +124,8 @@ def cosine_similarity(doc_vector, query_vector):
     cos_sim = defaultdict(list)
     for i in range(len(query_vector)):
         for j in range(len(doc_vector)):
-            cos_sim[i + 1].append((j + 1, np.dot(query_vector[i], doc_vector[j]) /
-                                   (np.linalg.norm(query_vector[i]) * np.linalg.norm(doc_vector[j]))))
+            cos_sim[i + 1].append((j + 1, logsumexp(np.dot(query_vector[i], doc_vector[j])) /
+                                   logsumexp(np.linalg.norm(query_vector[i]) * np.linalg.norm(doc_vector[j]))))
 
     # Sorting the cosine similarity in descending order
     for i in range(1, len(cos_sim) + 1):
@@ -156,9 +151,8 @@ if __name__ == '__main__':
     # Fetch path from command line
     path = sys.argv[1]
 
-    # Tokenize documents and queries
+    # Tokenize documents
     documents = tokenize_documents(path)
-    queries = tokenize_queries(path)
 
     # Calculate document frequency and vocabulary
     DF = df_calc(documents)
@@ -168,6 +162,7 @@ if __name__ == '__main__':
     document_tf_idf = calculate_tf_idf(documents, vocab, DF, len(documents))
     document_vector = document_to_vector(documents, vocab, document_tf_idf)
 
+    queries = tokenize_queries(path)
     query_tf_idf = calculate_tf_idf(queries, vocab, DF, len(documents))
     query_vector = query_to_vector(queries, vocab, query_tf_idf)
 
@@ -179,7 +174,8 @@ if __name__ == '__main__':
     # Part 1 - Display query and document id in order of decreasing cosine similarity
     for query_id, cosine_list in query_cosine_similarity.items():
         for doc_id, cosine in cosine_list[:10]:
+            # print(f"Query = {query_id}, Document = {doc_id}")
             print(f"{query_id}, {mapping_doc[doc_id]}")
-
+        print()
 
 
