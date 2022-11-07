@@ -1,11 +1,13 @@
 import itertools
+import sys
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from queue import Queue, Empty
+from queue import Queue
 from urllib.parse import urljoin, urlparse
-
+import os
 from AtomicCounter import Counter
 from WebScraper import scrape_page, scrape_links, scrape_info
-import sys
+
 sys.setrecursionlimit(10000)
 
 '''
@@ -34,16 +36,15 @@ class WebCrawler:
         self.crawled_pages = set([])
         self.dictionary = {}
         self.cont = itertools.count()
-        self.counter = 0
         # A queue representing the urls fetched and yet to be scraped
         self.to_crawl = Queue()
-        self.parent_list = {}
+        # self.parent_list = defaultdict(list)
 
         # Adding the base url to the queue
         self.to_crawl.put(self.base_url)
 
     def is_valid_extension(self, url):
-        if True in [ext in url for ext in self.invalid_extensions]:
+        if any(ext in url for ext in self.invalid_extensions):
             return False
         return True
 
@@ -52,12 +53,12 @@ class WebCrawler:
         for link in links:
             url = link['href']
             url = url.strip()
-            if (url.startswith('/') or self.domain in url) and ('.com' not in url):  # run only in the uic.edu domain
+            if (url.startswith('/') or self.domain in url) and ('.com' not in url):
                 url = urljoin(parent_url, url)
-                self.parent_list[url] = parent_url
+                # self.parent_list[parent_url].append(url)
                 if url not in self.crawled_pages and '@' not in url and self.is_valid_extension(url):
                     if not url.endswith("/"):
-                        url = url + "/"  # appending / in the end to avoid duplicate runs
+                        url = url + "/"
                     if "https" in url:
                         url = url.replace("https", "http")
                     self.to_crawl.put(url)
@@ -72,12 +73,10 @@ class WebCrawler:
     def post_scrape_callback(self, res):
         if res is not None:
             result = res.result()
-            if result and result[0]:
-                if result[0].status_code == 200:
-                    self.parse_links(result[0].text, result[1])
-                    scrape_info(result[0].text, result[2])
-            else:
-                self.delete_invalid_url("Result is None", result[1])
+            if result:
+                if result[3] == 200:
+                    self.parse_links(result[0], result[1])
+                    scrape_info(result[0], result[2])
 
     def run_scraper(self, num_pages):
         while True:
@@ -92,25 +91,30 @@ class WebCrawler:
                         self.dictionary[self.atomicCounter.value()] = target_url
                         job = self.pool.submit(scrape_page, target_url, self.atomicCounter.value())
                         job.add_done_callback(self.post_scrape_callback)
-                    elif len(self.crawled_pages) > num_pages:
+                    else:
                         break
-            except Empty:
-                return
             except Exception as e:
                 print(f'Exception is \n{e}')
                 continue
 
     def store_crawled_pages(self):
-        with open("mapping.txt", "w+") as f:
+        list1 = []
+        for filename in os.listdir('/Users/rishabhgoel/Documents/Fall22/IR/Web-Search-Engine/uic-docs-text'):
+            list1.append(int(filename[:-4]))
+
+        main_list = list(set(self.dictionary.keys()).difference(list1))
+        print(f'Missing docs = {main_list}')
+
+        for key in main_list:
+            del self.dictionary[key]
+
+        with open("mapping.txt", "w") as f:
             for num, url in self.dictionary.items():
                 f.write(f'{num} {url}\n')
-
-        with open("parent_list.txt", "w+") as f:
-            for url, parent in self.parent_list.items():
-                f.write(f'{url} -> {parent}\n')
 
 
 if __name__ == '__main__':
     s = WebCrawler("https://cs.uic.edu")
-    s.run_scraper(4000)
+    s.run_scraper(5000)
+    s.pool.shutdown()
     s.store_crawled_pages()
