@@ -1,3 +1,4 @@
+import os
 import re
 
 import requests
@@ -16,7 +17,7 @@ The scraper also extracts the visible text from each of these pages, which are p
 Also Parses the Html and returns all the available links in the page .
 '''
 
-docs_directory = "uic-docs-text/"
+docs_directory = "application/web_search_engine/core/static/core/uic-docs-text/"
 
 
 def tag_visible(element):
@@ -61,6 +62,9 @@ def scrape_info(html, filecounter):
 
 
 def create_document(text, filename):
+    if os.path.exists(filename):
+        os.remove(filename)
+
     with open(filename, 'w') as f:
         f.write(text)
 

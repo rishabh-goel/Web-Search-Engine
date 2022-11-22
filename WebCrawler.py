@@ -99,16 +99,18 @@ class WebCrawler:
 
     def store_crawled_pages(self):
         list1 = []
-        for filename in os.listdir('/Users/rishabhgoel/Documents/Fall22/IR/Web-Search-Engine/uic-docs-text'):
-            list1.append(int(filename[:-4]))
+        for filename in os.listdir('application/web_search_engine/core/static/core/uic-docs-text/'):
+            num, extn = filename.split('.')
+            list1.append(int(num))
 
         main_list = list(set(self.dictionary.keys()).difference(list1))
         print(f'Missing docs = {main_list}')
+        print(f'Number of Missing docs = {len(main_list)}')
 
         for key in main_list:
             del self.dictionary[key]
 
-        with open("mapping.txt", "w") as f:
+        with open("application/web_search_engine/core/static/core/mapping/mapping.txt", "w") as f:
             for num, url in self.dictionary.items():
                 f.write(f'{num} {url}\n')
 
